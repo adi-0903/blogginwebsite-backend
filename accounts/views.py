@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import (
     UserSerializer,
@@ -105,3 +106,67 @@ class FollowUserView(APIView):
             'message': message,
             'is_following': created
         })
+
+
+class GoogleAuthView(APIView):
+    """Google OAuth authentication endpoint"""
+    
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        avatar = request.data.get('avatar', '')
+        
+        if not email:
+            return Response(
+                {'error': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Check if user exists
+            user = User.objects.get(email=email)
+            
+            # Update user info if needed
+            if first_name and not user.first_name:
+                user.first_name = first_name
+            if last_name and not user.last_name:
+                user.last_name = last_name
+            # Note: Avatar handling would require additional setup in production
+            user.save()
+            
+            message = 'User signed in successfully with Google'
+            
+        except User.DoesNotExist:
+            # Create new user
+            username = email.split('@')[0]  # Use email prefix as username
+            counter = 1
+            original_username = username
+            
+            # Ensure unique username
+            while User.objects.filter(username=username).exists():
+                username = f"{original_username}{counter}"
+                counter += 1
+            
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                password=''  # Empty password for OAuth users
+            )
+            
+            # Note: Avatar handling would require additional setup in production
+            message = 'User created successfully with Google'
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data,
+            'message': message
+        }, status=status.HTTP_200_OK)

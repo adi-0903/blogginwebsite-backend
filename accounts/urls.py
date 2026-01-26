@@ -5,12 +5,14 @@ from .views import (
     CustomTokenObtainPairView,
     UserProfileView,
     UserDetailView,
-    FollowUserView
+    FollowUserView,
+    GoogleAuthView
 )
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('google/', GoogleAuthView.as_view(), name='google_auth'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', UserProfileView.as_view(), name='user_profile'),
     path('users/<str:username>/', UserDetailView.as_view(), name='user_detail'),
