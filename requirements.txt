@@ -1,13 +1,23 @@
+# Core Framework
 Django==5.0.1
 djangorestframework==3.14.0
 django-cors-headers==4.3.1
-psycopg[binary]==3.1.18
+
+# Database & Adapters
+# Using psycopg[binary] >= 3.2.10 for Python 3.14 compatibility on Render
+psycopg[binary]>=3.2.10
+dj-database-url==2.1.0
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+google-auth==2.49.2
+
+# Utilities
 Pillow>=10.3.0
 python-decouple==3.8
-djangorestframework-simplejwt==5.3.1
 django-filter==23.5
-dj-database-url==2.1.0
-google-auth==2.49.2
 requests==2.31.0
+
+# Production Server & Static Files
 gunicorn==21.2.0
 whitenoise==6.7.0
