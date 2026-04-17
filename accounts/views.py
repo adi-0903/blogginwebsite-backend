@@ -48,12 +48,10 @@ class GoogleLoginView(APIView):
 
     def post(self, request):
         token = request.data.get('token')
-        print(f"DEBUG: Received token: {token[:10]}...")
         if not token:
             return Response({'error': 'Token is missing'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            print(f"DEBUG: Verifying with Client ID: {settings.GOOGLE_CLIENT_ID}")
             # Specify the CLIENT_ID of the app that accesses the backend
             
             # Retry logic for clock skew issues (Token used too early)
@@ -65,13 +63,11 @@ class GoogleLoginView(APIView):
                     break
                 except ValueError as e:
                     if "Token used too early" in str(e) and i < max_retries - 1:
-                        print(f"DEBUG: Token used too early, retrying in 3 seconds... ({i+1}/{max_retries})")
                         time.sleep(3)
                         continue
                     raise e
 
             if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-                print(f"DEBUG: Wrong issuer: {idinfo['iss']}")
                 raise ValueError('Wrong issuer.')
 
             email = idinfo['email']
@@ -105,11 +101,9 @@ class GoogleLoginView(APIView):
             }, status=status.HTTP_200_OK)
 
         except ValueError as e:
-            print(f"DEBUG: ValueError in GoogleLogin: {str(e)}")
             # Invalid token
             return Response({'error': f'Invalid token: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print(f"DEBUG: Exception in GoogleLogin: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
