@@ -3,6 +3,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
 
 from .serializers import (
     UserSerializer,
@@ -36,6 +40,78 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT token endpoint with user data"""
     
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class GoogleLoginView(APIView):
+    """Google Sign In Endpoint"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        print(f"DEBUG: Received token: {token[:10]}...")
+        if not token:
+            return Response({'error': 'Token is missing'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            print(f"DEBUG: Verifying with Client ID: {settings.GOOGLE_CLIENT_ID}")
+            # Specify the CLIENT_ID of the app that accesses the backend
+            
+            # Retry logic for clock skew issues (Token used too early)
+            import time
+            max_retries = 3
+            for i in range(max_retries):
+                try:
+                    idinfo = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
+                    break
+                except ValueError as e:
+                    if "Token used too early" in str(e) and i < max_retries - 1:
+                        print(f"DEBUG: Token used too early, retrying in 3 seconds... ({i+1}/{max_retries})")
+                        time.sleep(3)
+                        continue
+                    raise e
+
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                print(f"DEBUG: Wrong issuer: {idinfo['iss']}")
+                raise ValueError('Wrong issuer.')
+
+            email = idinfo['email']
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+            
+            # Find the user or create a new one
+            user = User.objects.filter(email=email).first()
+            if not user:
+                base_username = email.split('@')[0]
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                user = User.objects.create(
+                    email=email,
+                    username=username,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+
+            # Create tokens
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            print(f"DEBUG: ValueError in GoogleLogin: {str(e)}")
+            # Invalid token
+            return Response({'error': f'Invalid token: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"DEBUG: Exception in GoogleLogin: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

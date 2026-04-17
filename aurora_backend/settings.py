@@ -186,3 +186,6 @@ SERVER_EMAIL = config('SERVER_EMAIL', default='server@mindmatrix.com')
 
 # Frontend URL for email links
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+
+# Google Login
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
